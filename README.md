@@ -55,6 +55,7 @@ Creative Technologist, Designer, and AI Specialist based in Hamburg, Germany. I 
 
 
 
+
 # Recent AI-Related Work by Benjamin Bertram
 
  ([Comfy.ui Kurs » AI Workflows erstellen](https://tomorrowacademy.org/seminare/comfy-ui)) *Benjamin Bertram (Illustrator & Creative Technologist)*  
