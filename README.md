@@ -1,5 +1,7 @@
 28.02.2025, 14:43
 
+# Hello I am Benjamin
+
 ## Who I Am
 
 Creative Technologist, Designer, and AI Specialist based in Hamburg, Germany. I blend AI, design, and technology to create innovative solutions for businesses, culture, and research.
