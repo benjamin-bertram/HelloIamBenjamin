@@ -52,7 +52,7 @@ Creative Technologist, Designer, and AI Specialist based in Hamburg, Germany. I 
 ## Social Media
 - **LinkedIn**: [linkedin.com/in/benjaminbertram](https://www.linkedin.com/in/benjaminbertram)
 - **Instagram**: [instagram.com/benjamin.bertram](https://www.instagram.com/benjamin.bertram)
-- **Twitter**: [twitter.com/bbnjmbrtr](https://twitter.com/bnjmbrtrm)
+- **Twitter**: [twitter.com/bnjmnbrtrm](https://twitter.com/BnjmnBrtrm)
 - **Bluesky**: [benjamin-bertram.bsky.social](https://bsky.app/profile/benjamin-bertram.bsky.social)
 
 
