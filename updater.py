@@ -8,7 +8,7 @@ import random
 # Configuration
 REPO_PATH = os.path.dirname(os.path.abspath(__file__))
 MD_FILE = "README.md"
-MAX_COMMITS_PER_DAY = 6
+MAX_COMMITS_PER_DAY = 2
 MIN_INTERVAL = 1800  # Minimum interval between commits (30 minutes in seconds)
 MAX_INTERVAL = 7200  # Maximum interval between commits (2 hours in seconds)
 
