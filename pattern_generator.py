@@ -9,7 +9,7 @@ class PatternGenerator:
     def __init__(self):
         self.project_dir = os.path.realpath(os.path.dirname(__file__))
         self.repo = None
-        self.remote_url = "https://github.com/theveloper-pl/Fake-Git-History.git" # This should be the user's repo
+        self.remote_url = "https://github.com/benjamin-bertram/HelloIamBenjamin" # This should be the user's repo
         self.repo_name = self.remote_url.split("/")[-1].split(".")[0]
         self.pattern_file = "pattern.txt"
         self.pattern = []
@@ -59,12 +59,63 @@ class PatternGenerator:
             print(f'[Error]: Error occurred while pushing the code !:\n{e}')
             return False
 
+    def reset_pattern_commits(self):
+        print("\n[WARNING]: You are about to reset your branch and force push to remote.")
+        print("[WARNING]: This is a DESTRUCTIVE operation and will rewrite history.")
+        print("[WARNING]: ONLY PROCEED IF YOU UNDERSTAND THE IMPLICATIONS AND ARE SURE.")
+        confirm = input("Type 'yes' to confirm reset and force push: ")
+        if confirm.lower() != 'yes':
+            print("[Info]: Reset operation cancelled.")
+            return False
+
+        try:
+            # Ensure the repository is clean before fetching
+            if self.repo.is_dirty(untracked_files=True):
+                print("[Info]: Discarding local changes and untracked files...")
+                self.repo.git.reset('--hard')
+                self.repo.git.clean('-fdx')
+                print("[Info]: Local changes discarded.")
+
+            print("[Info]: Fetching latest from remote...")
+            fetch_output = self.repo.remotes.origin.fetch()
+            print(f"[Debug]: Fetch output: {fetch_output}")
+
+            current_branch = self.repo.active_branch
+            remote_branch_ref = f'origin/{current_branch.name}'
+            print(f"[Info]: Resetting local branch '{current_branch.name}' to remote's state ('{remote_branch_ref}')...")
+            reset_output = self.repo.git.reset('--hard', remote_branch_ref)
+            print(f"[Debug]: Reset output: {reset_output}")
+
+            # Remove the pattern_commit_log.txt file if it exists
+            dummy_file_path = os.path.join(self.repo.working_dir, "pattern_commit_log.txt")
+            if os.path.exists(dummy_file_path):
+                os.remove(dummy_file_path)
+                print(f"[Info]: Removed '{dummy_file_path}'.")
+            
+            # Add and commit the removal of the dummy file if it was tracked
+            if self.repo.index.diff(None) or self.repo.untracked_files:
+                print("[Info]: Staging changes (if any) after file removal...")
+                self.repo.git.add(A=True)
+                if self.repo.index.diff("HEAD"): # Check if there are actual changes to commit
+                    print("[Info]: Committing removal of dummy file...")
+                    self.repo.index.commit(message="Clean up pattern_commit_log.txt")
+                else:
+                    print("[Info]: No changes to commit after dummy file removal.")
+
+            print(f"[Info]: Force pushing to remote branch '{current_branch.name}'...")
+            push_output = self.repo.git.push('--force', 'origin', current_branch.name)
+            print(f"[Debug]: Push output: {push_output}")
+            print("[Info]: Repository successfully reset to remote's state.")
+            return True
+        except Exception as e:
+            print(f"[Error]: Failed to reset and force push: {e}")
+            return False
+
     def generate_pattern_commits(self, start_date: mydate.date):
         if not self.pattern:
             print("[Error]: No pattern loaded. Please call read_pattern first.")
             return
 
-        current_date = start_date
         pattern_height = len(self.pattern)
         pattern_width = len(self.pattern[0]) if pattern_height > 0 else 0
 
@@ -72,58 +123,59 @@ class PatternGenerator:
             print("[Error]: Pattern has no width. Check pattern.txt format.")
             return
 
-        # Calculate the number of days to simulate based on the pattern width
-        # Each character in a pattern line represents a day
-        total_pattern_days = pattern_width
-
-        # Find the starting point in the pattern based on the current date
-        # We want to align the current date with the correct day in the pattern
         today = mydate.date.today()
-        days_since_start = (today - start_date).days
-
-        # Ensure we don't go past the pattern's width
-        if days_since_start >= total_pattern_days:
-            print("[Info]: Pattern generation for past dates is complete. Waiting for next day to apply pattern.")
-            return
-
-        # Determine the column in the pattern for today's date
-        current_pattern_column = days_since_start % pattern_width
-
-        print(f"[Info]: Starting pattern generation from {start_date}. Today is {today}.")
-        print(f"[Info]: Current pattern column for today: {current_pattern_column}")
-
-        # Iterate through the pattern for the current day (column)
-        commits_today = 0
-        for row in range(pattern_height):
-            if self.pattern[row][current_pattern_column] == '0':
-                num_commits = random.randint(self.min_commits_per_day, self.max_commits_per_day)
-                print(f"[Info]: Committing {num_commits} times for {today.strftime('%Y-%m-%d')}")
-                for _ in range(num_commits):
-                    self.execute_commit(today.year, today.month, today.day)
-                commits_today += num_commits
+        current_date = start_date
         
-        if commits_today > 0:
-            self.git_push()
-        else:
-            print(f"[Info]: No commits for {today.strftime('%Y-%m-%d')} based on pattern.")
-
-
-    def run_daily_update(self):
-        while True:
-            today = mydate.date.today()
-            print(f"[Info]: Running daily update for {today.strftime('%Y-%m-%d')}")
+        # Generate historical commits up to yesterday
+        print(f"[Info]: Generating historical commits from {start_date} to {today - mydate.timedelta(days=1)}")
+        while current_date < today:
+            # Calculate weekday (Sunday=0, Monday=1, ..., Saturday=6)
+            weekday = (current_date.weekday() + 1) % 7
+            # Calculate week offset relative to the start date
+            week_offset = (current_date - start_date).days // 7
             
-            # Get start date from user
-            while True:
-                try:
-                    start_date_str = input("Enter the pattern start date in YYYY/MM/DD format: ")
-                    start_date_parts = [int(x) for x in start_date_str.split("/")]
-                    pattern_start_date = mydate.date(start_date_parts[0], start_date_parts[1], start_date_parts[2])
-                    break
-                except ValueError:
-                    print("[Error]: Invalid date format. Please use YYYY/MM/DD.")
+            commits_for_day = 0
+            if weekday < pattern_height and week_offset < pattern_width:
+                if self.pattern[weekday][week_offset] == '0':
+                    num_commits = random.randint(self.min_commits_per_day, self.max_commits_per_day)
+                    for _ in range(num_commits):
+                        self.execute_commit(current_date.year, current_date.month, current_date.day)
+                    commits_for_day += num_commits
+            
+            if commits_for_day > 0:
+                print(f"[Info]: Committed {commits_for_day} times for {current_date.strftime('%Y-%m-%d')}")
+            else:
+                print(f"[Info]: No commits for {current_date.strftime('%Y-%m-%d')} based on pattern.")
+            
+            current_date += mydate.timedelta(days=1)
+        
+        # Push all historical commits at once
+        if start_date < today: # Only push if there were historical commits to make
+            self.git_push()
+        
+        print(f"[Info]: Historical pattern generation complete. Starting daily updates from {today}.")
+        
+        # Start daily updates
+        while True:
+            current_day_to_commit = mydate.date.today()
+            # Calculate weekday (Sunday=0, Monday=1, ..., Saturday=6)
+            weekday = (current_day_to_commit.weekday() + 1) % 7
+            # Calculate week offset relative to the start date
+            week_offset = (current_day_to_commit - start_date).days // 7
 
-            self.generate_pattern_commits(pattern_start_date)
+            commits_for_day = 0
+            if weekday < pattern_height and week_offset < pattern_width:
+                if self.pattern[weekday][week_offset] == '0':
+                    num_commits = random.randint(self.min_commits_per_day, self.max_commits_per_day)
+                    for _ in range(num_commits):
+                        self.execute_commit(current_day_to_commit.year, current_day_to_commit.month, current_day_to_commit.day)
+                    commits_for_day += num_commits
+            
+            if commits_for_day > 0:
+                print(f"[Info]: Committed {commits_for_day} times for {current_day_to_commit.strftime('%Y-%m-%d')}")
+                self.git_push()
+            else:
+                print(f"[Info]: No commits for {current_day_to_commit.strftime('%Y-%m-%d')} based on pattern.")
 
             # Calculate time until next midnight
             now = mydate.datetime.now()
@@ -133,8 +185,29 @@ class PatternGenerator:
             print(f"[Info]: Next update at {next_midnight.strftime('%Y-%m-%d %H:%M:%S')}. Sleeping for {time_to_sleep:.0f} seconds.")
             time.sleep(time_to_sleep)
 
+    def run_script(self):
+        self.load_repo()
+        if not self.read_pattern():
+            return
+
+        reset_choice = input("Do you want to reset your repository to the remote's state before generating the pattern? (yes/no): ")
+        if reset_choice.lower() == 'yes':
+            if not self.reset_pattern_commits():
+                print("[Error]: Failed to reset repository. Aborting pattern generation.")
+                return
+
+        while True:
+            try:
+                start_date_str = input("Enter the pattern start date in YYYY/MM/DD format: ")
+                start_date_parts = [int(x) for x in start_date_str.split("/")]
+                pattern_start_date = mydate.date(start_date_parts[0], start_date_parts[1], start_date_parts[2])
+                break
+            except ValueError:
+                print("[Error]: Invalid date format. Please use YYYY/MM/DD.")
+        
+        self.generate_pattern_commits(pattern_start_date)
+
+
 if __name__ == "__main__":
     generator = PatternGenerator()
-    generator.load_repo()
-    if generator.read_pattern():
-        generator.run_daily_update()
+    generator.run_script()
